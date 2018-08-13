@@ -25,6 +25,4 @@ def SGDPriv(f, x0, fprime, X, y, s, eps, lam):
 
         print(loss)
     return coef    
-def loss():
 
-def grad_loss():
