@@ -1,4 +1,5 @@
 import numpy
+from loss import loss, grad_loss
 
 
 '''Private SGD from song et al'''
@@ -12,8 +13,8 @@ def SGDPriv(f, x0, fprime, X, y, s, eps, lam):
     for i in range(size(y)): #batch size = 1
         eta = 1.0 / (lam * (optimal_init + t - 1)) #optimal learning rate
 
-        loss = (coef, X, y, s)
-        grad = fprime(coef, X, y, s, i)
+        sumloss += loss(coef, X[i], y[i], s[i])
+        grad = grad_loss(coef, X[i, y[i], s[i])
 
         noise = numpy.random.laplace(loc = 0.0, scale = 2 / epsilon,
                                      coef_size)
