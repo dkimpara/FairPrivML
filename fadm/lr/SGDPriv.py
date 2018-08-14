@@ -16,7 +16,7 @@ def SGDPriv(x0, X, y, s, eps, lam):
         sumloss += loss(coef, X[i], y[i], s[i])
         grad = grad_loss(coef, X[i], y[i], s[i])
 
-        noise = numpy.random.laplace(loc = 0.0, scale = 2 / epsilon,
+        noise = numpy.random.laplace(loc = 0.0, scale = 2 / eps,
                                      coef_size)
         #clip gradient with l_2 norm
         grad = grad / max(1, numpy.linalg.norm(grad))
