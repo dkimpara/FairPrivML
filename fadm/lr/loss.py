@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 
 def sigmoid(x, w):
     """ sigmoid(w^T x)
@@ -22,22 +22,19 @@ def sigmoid(x, w):
 
 def loss(coef, x, y, s): #todo: access to n_s
     pred = sigmoid(x, coef) #probability of predicting 1 given x
-    
+
     logLoss = y * pred + (1.0 - y) * (1 - pred)
     fairLoss = n_sample * (s / n_1 - (1 - s) / n_0) * pred
-    regLoss = numpy.linalg.norm(coef)
+    regLoss = np.linalg.norm(coef)
 
-    return -logLoss + self.eta * fairLoss + self.C * 0.5 * regLoss 
+    return -logLoss + self.eta * fairLoss + self.C * 0.5 * regLoss
 def grad_loss(coef, x, y, s, n_sample, n_0, n_1):
     pred = sigmoid(x, coeff)
-    
+
     grad_fair = x * n_sample * (s / n_1 - (1 - s) / n_0)
                 * pred * (1 - pred))
-                
+
     grad_loss = x * y * pred * (1 - pred) +
-                x * (1 - y) * (-pred) * (1 - pred) 
+                x * (1 - y) * (-pred) * (1 - pred)
 
     return -grad_loss + self.eta * grad_fair + self.C * coef
-
-
-    

@@ -33,6 +33,7 @@ import numpy as np
 from scipy.optimize import fmin_cg
 from sklearn.linear_model import LogisticRegression
 from sklearn.base import BaseEstimator, ClassifierMixin
+#from SGDPriv import SGDPriv
 
 #==============================================================================
 # Public symbols
@@ -283,14 +284,43 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # optimization
         self.init_coef(itype, X, y, s)
-        self.coef_ = fmin_cg(self.loss,
+        '''self.coef_ = fmin_cg(self.loss,
                              self.coef_,
                              fprime=self.grad_loss,
                              args=(X, y, s),
-                             **kwargs)
+                             **kwargs)'''
+
+        # TODO remove fixed eps, lambda
+        self.coef_ = self.SGDPriv(self.coef_, X, y, s, 1, .001)
 
         # get final loss
         self.f_loss_ = self.loss(self.coef_, X, y, s)
+
+
+    # Moved SGDPriv function here temporarily
+    '''Private SGD from song et al'''
+
+    def SGDPriv(self, x0, X, y, s, eps, lam):
+        sumloss = 0
+        coef = x0
+        coef_size = len(x0)
+        optimal_init = 1.0 / lam
+
+        for i in range(len(y)): #batch size = 1
+            nu = 1.0 / (lam * (optimal_init + t - 1)) #optimal learning rate
+
+            sumloss += loss(coef, X[i], y[i], s[i])
+            grad = grad_loss(coef, X[i], y[i], s[i])
+
+            noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+            #clip gradient with l_2 norm
+            grad = grad / max(1, numpy.linalg.norm(grad))
+
+            #update weights
+            coef -= nu * (lam * coef + grad + noise)
+
+            #print(loss)
+        return coef
 
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
@@ -300,6 +330,54 @@ class LRwPRObjetiveType4Mixin(LRwPR):
     Y and S.
     """
 
+    def loss(self, coef_, x, y, s):
+        # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
+        '''
+        parameters
+        coef:
+        x: array
+            features
+        y: float
+            true label
+        s: float
+            sensitive attribute
+
+        returns
+        float: loss of instance'''
+
+        coef = coef_.reshape(self.n_sfv_, self.n_features_)
+
+        pred = sigmoid(x, coef) # probability of predicting 1 given x
+
+        logLoss = y * pred + (1.0 - y) * (1 - pred)
+        fairLoss = self.n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred
+        regLoss = np.linalg.norm(coef)
+
+        return -logLoss + self.eta * fairLoss + self.C * 0.5 * regLoss
+
+    def grad_loss(self, coef_, x, y, s):
+
+        '''
+        parameters
+        coef:
+        x:
+        y:
+        s:
+
+        returns
+        float:
+        '''
+        coef = coef_.reshape(self.n_sfv_, self.n_features_)
+
+        pred = sigmoid(x, coef)
+
+        grad_fair = self.n_samples_ * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
+
+        loss = y * pred * (1 - pred) + (1 - y) * (-pred) * (1 - pred)
+
+        return coef * (-loss + self.eta * grad_fair) + self.C * coef
+
+    '''
     def loss(self, coef_, X, y, s):
         """ loss function: negative log - likelihood with l2 regularizer
         To suppress the warnings at np.log, do "np.seterr(all='ignore')
@@ -440,6 +518,7 @@ class LRwPRObjetiveType4Mixin(LRwPR):
 #        print >> sys.stderr, "l =", l
 
         return l_
+    '''
 
 class LRwPRType4\
     (LRwPRObjetiveType4Mixin,

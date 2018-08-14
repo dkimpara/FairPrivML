@@ -1,5 +1,5 @@
 import numpy
-from loss import loss, grad_loss
+from pr import loss, grad_loss
 
 
 '''Private SGD from song et al'''
@@ -9,7 +9,7 @@ def SGDPriv(x0, X, y, s, eps, lam):
     coef = x0
     coef_size = size(x0)
     optimal_init = 1.0 / lam
-    
+
     for i in range(size(y)): #batch size = 1
         nu = 1.0 / (lam * (optimal_init + t - 1)) #optimal learning rate
 
@@ -20,10 +20,9 @@ def SGDPriv(x0, X, y, s, eps, lam):
                                      coef_size)
         #clip gradient with l_2 norm
         grad = grad / max(1, numpy.linalg.norm(grad))
-        
+
         #update weights
         coef -= nu * (lam * coef + grad + noise)
 
         print(loss)
-    return coef    
-
+    return coef
