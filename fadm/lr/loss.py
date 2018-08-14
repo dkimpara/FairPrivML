@@ -31,13 +31,13 @@ def loss(coef, x, y, s): #todo: access to n_s
 def grad_loss(coef, x, y, s, n_sample, n_0, n_1):
     pred = sigmoid(x, coeff)
     
-    grad_fair = n_sample * (s / n_1 - (1 - s) / n_0)
+    grad_fair = x * n_sample * (s / n_1 - (1 - s) / n_0)
                 * pred * (1 - pred))
                 
-    grad_loss = y * pred * (1 - pred) +
-                (1 - y) * (-pred) * (1 - pred)
+    grad_loss = x * y * pred * (1 - pred) +
+                x * (1 - y) * (-pred) * (1 - pred) 
 
-    return coef * (-grad_loss + self.eta * grad_fair) + self.C * coef
+    return -grad_loss + self.eta * grad_fair + self.C * coef
 
 
     
