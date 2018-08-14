@@ -33,7 +33,7 @@ import numpy as np
 from scipy.optimize import fmin_cg
 from sklearn.linear_model import LogisticRegression
 from sklearn.base import BaseEstimator, ClassifierMixin
-#from SGDPriv import SGDPriv
+#from loss import loss, grad_loss
 
 #==============================================================================
 # Public symbols
@@ -289,48 +289,39 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-
+        
         # TODO remove fixed eps, lambda
-        self.coef_ = self.SGDPriv(self.coef_, X, y, s, 1, .001)
+        self.coef_ = self.SGDPriv(self.coef_, X, y, s, 1, .1)
 
         # get final loss
-        self.f_loss_ = self.loss(self.coef_, X, y, s)
+        self.f_loss_ = self.loss2(self.coef_, X, y, s)
 
 
     # Moved SGDPriv function here temporarily
     '''Private SGD from song et al'''
 
+    
     def SGDPriv(self, x0, X, y, s, eps, lam):
         sumloss = 0
-        coef = x0
-        coef_size = len(x0)
+        coef = x0[:int(len(x0)/2)]
+        coef_size = len(coef)
         optimal_init = 1.0 / lam
-
         for i in range(len(y)): #batch size = 1
-            nu = 1.0 / (lam * (optimal_init + t - 1)) #optimal learning rate
-
-            sumloss += loss(coef, X[i], y[i], s[i])
-            grad = grad_loss(coef, X[i], y[i], s[i])
+            nu = 1.0 / (lam * (optimal_init + i)) #optimal learning rate
+            sumloss += self.loss(coef, X[i,:], y[i], s[i])
+            grad = self.grad_loss(coef, X[i,:], y[i], s[i])
 
             noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
             #clip gradient with l_2 norm
-            grad = grad / max(1, numpy.linalg.norm(grad))
+            grad = grad / max(1, np.linalg.norm(grad))
 
             #update weights
             coef -= nu * (lam * coef + grad + noise)
 
             #print(loss)
-        return coef
+        return np.append(coef,coef)
 
-class LRwPRObjetiveType4Mixin(LRwPR):
-    """ objective function of logistic regression with prejudice remover
-
-    Loss Function type 4: Weights for logistic regression are prepared for each
-    value of S. Penalty for enhancing is defined as mutual information between
-    Y and S.
-    """
-
-    def loss(self, coef_, x, y, s):
+    def loss(self, coef, x, y, s):
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
         '''
         parameters
@@ -345,17 +336,18 @@ class LRwPRObjetiveType4Mixin(LRwPR):
         returns
         float: loss of instance'''
 
-        coef = coef_.reshape(self.n_sfv_, self.n_features_)
+        #coef = coef_.reshape(self.n_sfv_, self.n_features_)
 
         pred = sigmoid(x, coef) # probability of predicting 1 given x
+        n_samples = self.c_s_[1] + self.c_s_[0]
 
         logLoss = y * pred + (1.0 - y) * (1 - pred)
-        fairLoss = self.n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred
+        fairLoss = n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred
         regLoss = np.linalg.norm(coef)
 
         return -logLoss + self.eta * fairLoss + self.C * 0.5 * regLoss
 
-    def grad_loss(self, coef_, x, y, s):
+    def grad_loss(self, coef, x, y, s):
 
         '''
         parameters
@@ -367,18 +359,37 @@ class LRwPRObjetiveType4Mixin(LRwPR):
         returns
         float:
         '''
-        coef = coef_.reshape(self.n_sfv_, self.n_features_)
+        #coef = coef_.reshape(self.n_sfv_, self.n_features_)
 
         pred = sigmoid(x, coef)
-
-        grad_fair = self.n_samples_ * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
+        n_samples = self.c_s_[1] + self.c_s_[0]
+        grad_fair = n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
 
         loss = y * pred * (1 - pred) + (1 - y) * (-pred) * (1 - pred)
 
         return coef * (-loss + self.eta * grad_fair) + self.C * coef
+'''
+    def loss2(self, coef, X, y, s):
 
-    '''
-    def loss(self, coef_, X, y, s):
+        total = 0
+        for i in range(len(y)):
+            pred = sigmoid(X[i,:], coef)
+            total += 
+
+        return total
+'''
+class LRwPRObjetiveType4Mixin(LRwPR):
+    """ objective function of logistic regression with prejudice remover
+
+    Loss Function type 4: Weights for logistic regression are prepared for each
+    value of S. Penalty for enhancing is defined as mutual information between
+    Y and S.
+    """
+
+    
+
+
+    def loss2(self, coef_, X, y, s):
         """ loss function: negative log - likelihood with l2 regularizer
         To suppress the warnings at np.log, do "np.seterr(all='ignore')
 
@@ -400,7 +411,7 @@ class LRwPRObjetiveType4Mixin(LRwPR):
         """
 
         coef = coef_.reshape(self.n_sfv_, self.n_features_)
-
+        
 #        print >> sys.stderr, "loss:", coef[0, :], coef[1, :]
 
         ### constants
@@ -432,10 +443,10 @@ class LRwPRObjetiveType4Mixin(LRwPR):
         # l2 regularizer
         reg = np.sum(coef * coef)
 
-        l = -l + self.eta * f + 0.5 * self.C * reg
+        l = -l #+ self.eta * f + 0.5 * self.C * reg
 #        print >> sys.stderr, l
         return l
-
+'''
     def grad_loss(self, coef_, X, y, s):
         """ first derivative of loss function
 
