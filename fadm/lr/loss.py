@@ -20,8 +20,14 @@ def sigmoid(x, w):
 
     return 1.0 / (1.0 + np.exp(-s))
 
-def loss(coef, x, y, s):
+def loss(coef, x, y, s, eta, beta): #todo: access to n_s
+    pred = sigmoid(x, coeff) #probability of predicting 1 given x
+    
+    logLoss = y * pred + (1.0 - y) * (1 - pred)
+    fairLoss = n_sample * (s / n_1 - (1 - s) / n_0) * pred
+    regLoss = numpy.linalg.norm(coef)
 
+    return logLoss + eta * fairLoss + beta * 0.5 * regLoss 
 def grad_loss(coef, x, y, s, n_sample, n_0, n_1):
 
     
