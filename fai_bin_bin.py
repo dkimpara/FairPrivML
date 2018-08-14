@@ -150,7 +150,7 @@ def read_01_file(opt):
             f = line.split(opt.dl)
 
             try:
-                s = int(f[opt.sensitive])
+                s = int(float(f[opt.sensitive]))
                 c = int(f[opt.correct])
                 e = int(f[opt.estimated])
 
