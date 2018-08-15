@@ -296,7 +296,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         eps = 100
 
         lam = 0.1
-        C = 120
+        C = 3
 
         eta = 0.00001
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
@@ -321,7 +321,8 @@ class LRwPRFittingType1Mixin(LRwPR):
         coef_size = len(coef)
         #nu = 1.0 / lam
         for i in range(len(y)): #DO LEARNING RATE
-            nu = 1.0 / (lam * (i + 1)) #optimal learning rate
+            #nu = 1.0 / (lam * (i + 1)) #optimal learning rate
+            nu = .00000001
             #nu = 1.0 / sqrt(i+1)
             #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
 
@@ -377,15 +378,20 @@ class LRwPRFittingType1Mixin(LRwPR):
         float:
         '''
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
-        """n_samples = self.c_s_[1] + self.c_s_[0]
+        n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
+
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
-        #print(grad_fair)
+        """#print(grad_fair)
         #dloss = (y - pred) * pred * (1 - pred) * x
         dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
 
         return -dloss + eta * grad_fair + C * coef"""
-        z = x * coef
+        z = 0
+        if (y == 0):
+            z = -pred
+        if (y == 1):
+            z = pred
         if z > 18.0:
             dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
         elif z < -18.0:
