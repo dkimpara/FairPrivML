@@ -1,1 +1,3 @@
 *.pyc
+model_*
+result_*
