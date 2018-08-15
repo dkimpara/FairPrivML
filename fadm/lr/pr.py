@@ -292,7 +292,8 @@ class LRwPRFittingType1Mixin(LRwPR):
                              **kwargs)'''
 
         # TODO remove fixed eps, lambda
-        self.coef_ = self.SGDPriv(self.coef_, X, y, s, 100, 0.000001)
+        #SGDpriv(coef, X, y, s, eps, lam, C, eta)
+        self.coef_ = self.SGDPriv(self.coef_, X, y, s, 100, 0.000001, 10, 0)
         # get final loss
         '''
         model = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=1.75, fit_intercept=True)
@@ -308,15 +309,15 @@ class LRwPRFittingType1Mixin(LRwPR):
     '''Private SGD from song et al'''
 
     
-    def SGDPriv(self, x0, X, y, s, eps, lam):
+    def SGDPriv(self, x0, X, y, s, eps, lam, C, eta):
         sumloss = 0
         coef = x0[:int(len(x0)/2)]
         coef_size = len(coef)
         optimal_init = 1.0 / lam
         for i in range(len(y)): #batch size = 1
             nu = 1.0 / (lam * (optimal_init + i)) #optimal learning rate
-            sumloss += self.loss(coef, X[i,:], y[i], s[i])
-            grad = self.grad_loss(coef, X[i,:], y[i], s[i])
+            sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+            grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
             noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
             #clip gradient with l_2 norm
             #grad = grad / max(1, np.linalg.norm(grad))
@@ -327,7 +328,7 @@ class LRwPRFittingType1Mixin(LRwPR):
             #print(loss)
         return np.append(coef,coef)
 
-    def loss(self, coef, x, y, s):
+    def loss(self, coef, C, eta, x, y, s):
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
         '''
         parameters
@@ -351,9 +352,9 @@ class LRwPRFittingType1Mixin(LRwPR):
         fairLoss = n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred
         regLoss = np.linalg.norm(coef)
 
-        return -logLoss + self.eta * fairLoss + 10 * self.C * regLoss
+        return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, x, y, s):
+    def grad_loss(self, coef, C, eta, x, y, s):
 
         '''
         parameters
@@ -373,7 +374,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         grad_loss = x * y * pred * (1 - pred) + x * (1 - y) * (-pred) * (1 - pred)
 
-        return -grad_loss + self.eta * grad_fair + self.C * coef
+        return -grad_loss + eta * grad_fair + C * coef
 '''
     def loss2(self, coef, X, y, s):
 
