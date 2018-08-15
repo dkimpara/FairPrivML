@@ -296,7 +296,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         eps = 100
         
         lam = 0.1
-        C = 10
+        C = 120
         
         eta = 0.00001
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
@@ -319,10 +319,10 @@ class LRwPRFittingType1Mixin(LRwPR):
         sumloss = 0
         coef = x0[:int(len(x0)/2)]
         coef_size = len(coef)
-        nu = 1.0 / lam
-        for i in range(len(y)): #batch size = 1
-            #nu = 1.0 / (lam * (nu + i)) #optimal learning rate
-
+        #nu = 1.0 / lam
+        for i in range(len(y)): #DO LEARNING RATE 
+            nu = 1.0 / (lam * (i + 1)) #optimal learning rate
+            #nu = 1.0 / sqrt(i+1)
             #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
             
             grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
@@ -338,7 +338,7 @@ class LRwPRFittingType1Mixin(LRwPR):
             #print(loss)
         return np.append(coef,coef)
 
-    def loss(self, coef, C, eta, x, y, s):
+    def loss(self, coef, C, eta, x, y, s): 
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
         '''
         parameters
@@ -364,7 +364,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, C, eta, x, y, s):
+    def grad_loss(self, coef, C, eta, x, y, s): #CHECK
 
         '''
         parameters
@@ -381,8 +381,8 @@ class LRwPRFittingType1Mixin(LRwPR):
         pred = sigmoid(x, coef)
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
         #print(grad_fair)
-        dloss = (y - pred) * pred * (1 - pred) * x
-        dloss = 1
+        #dloss = (y - pred) * pred * (1 - pred) * x
+        dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
         return -dloss + eta * grad_fair + C * coef
 '''
     def loss2(self, coef, X, y, s):
