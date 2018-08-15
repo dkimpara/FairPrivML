@@ -295,10 +295,10 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         eps = 1
 
-        lam = 0.1
-        C = 30
+        lam = 0.001
+        C = 22
 
-        eta = 0.00001
+        eta = 0.00000
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
         # get final loss
         '''
@@ -336,14 +336,15 @@ class LRwPRFittingType1Mixin(LRwPR):
                 else:
                     coef = coef2
                 grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
-                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+                #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+                noise = 0
                 #print(grad)
                 #clip gradient with l_2 norm
                 grad = grad / max(1, np.linalg.norm(grad))
                 #coef = coef * max(0, 1 - (nu * C))
-                coef = max(1, np.linalg.norm(coef))
+                coef = coef / max(1, np.linalg.norm(coef))
                 #update weights
-                coef -= nu * (grad + noise)
+                coef -= nu * (lam * coef + grad + noise)
 
                 #print(loss)
         return np.append(coef2,coef1)
