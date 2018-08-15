@@ -351,7 +351,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         fairLoss = n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred
         regLoss = np.linalg.norm(coef)
 
-        return -logLoss + self.eta * fairLoss + 10 * 0.5 * regLoss
+        return -logLoss + self.eta * fairLoss + 10 * self.C * regLoss
 
     def grad_loss(self, coef, x, y, s):
 
@@ -373,7 +373,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         grad_loss = x * y * pred * (1 - pred) + x * (1 - y) * (-pred) * (1 - pred)
 
-        return -grad_loss + self.eta * grad_fair + 50 * coef
+        return -grad_loss + self.eta * grad_fair + self.C * coef
 '''
     def loss2(self, coef, X, y, s):
 
