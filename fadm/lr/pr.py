@@ -295,10 +295,10 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         eps = 100
         
-        lam = 0.1
-        C = 120
+        lam = 0.0001
+        C = 0.0001
         
-        eta = 0.00001
+        eta = 0
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
         # get final loss
         '''
@@ -331,9 +331,9 @@ class LRwPRFittingType1Mixin(LRwPR):
             #print(grad)
             #clip gradient with l_2 norm
             grad = grad / max(1, np.linalg.norm(grad))
-            coef = coef / max(1, np.linalg.norm(coef))
+            #coef = coef / max(1, np.linalg.norm(coef))
             #update weights
-            coef -= nu * (lam * coef + grad + noise)
+            coef = coef - nu * (lam * coef + grad + noise)
 
             #print(loss)
         return np.append(coef,coef)
@@ -351,7 +351,7 @@ class LRwPRFittingType1Mixin(LRwPR):
             sensitive attribute
 
         returns
-        float: loss of instance'''
+        float: loss of instance '''
 
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
 
@@ -375,24 +375,32 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         returns
         float:
-        '''
+        
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
         n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
+            
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
         #print(grad_fair)
         #dloss = (y - pred) * pred * (1 - pred) * x
         dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
-        return -dloss + eta * grad_fair + C * coef
-'''
+        '''
+        
+        z = x * coef
+        if z > 18.0:
+            dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
+        elif z < -18.0:
+            dloss -y + (1-y)
+        else:
+            dloss = -y / (np.exp(-z)+1.0) + (1-y) / (np.exp(-z)+1.0)
+            
+        return dloss * x + eta * grad_fair + C * coef
+
+
     def loss2(self, coef, X, y, s):
-
         total = 0
-        for i in range(len(y)):
-            pred = sigmoid(X[i,:], coef)
-            total += 
-
         return total
+
 '''
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
