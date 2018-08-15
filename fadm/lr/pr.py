@@ -293,10 +293,10 @@ class LRwPRFittingType1Mixin(LRwPR):
         #DIRECTIONS self.SGDpriv(coef, X, y, s, eps, lam, C, eta)
 
 
-        eps = 100
+        eps = 1
 
         lam = 0.1
-        C = 3
+        C = 30
 
         eta = 0.00001
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
@@ -306,8 +306,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         model.fit(X,y)
         print(model.score(X, y))
         self.coef_ = np.append(model.coef_, model.coef_)
-        print(self.coef_)
-        '''
+        print(self.coef_)'''
         self.f_loss_ = self.loss2(self.coef_, X, y, s)
 
 
@@ -317,27 +316,37 @@ class LRwPRFittingType1Mixin(LRwPR):
 
     def SGDPriv(self, x0, X, y, s, eps, lam, C, eta):
         sumloss = 0
-        coef = x0[:int(len(x0)/2)]
-        coef_size = len(coef)
+        coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
+    
+        coef_size = len(coef1)
+        
         #nu = 1.0 / lam
-        for i in range(len(y)): #DO LEARNING RATE
-            #nu = 1.0 / (lam * (i + 1)) #optimal learning rate
-            nu = .00000001
-            #nu = 1.0 / sqrt(i+1)
-            #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+        typw = np.sqrt(1.0 / np.sqrt(C))
+        # computing eta0, the initial learning rate
+        initial_nu0 = typw / max(1.0, -1.0/ (np.exp(-typw)+1.0))
+        # initialize t such that eta at first sample equals eta0
+        optimal_init = 1.0 / (initial_nu0 * C)
 
-            grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
-            #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-            noise = 0
-            #print(grad)
-            #clip gradient with l_2 norm
-            grad = grad / max(1, np.linalg.norm(grad))
-            coef = coef / max(1, np.linalg.norm(coef))
-            #update weights
-            coef -= nu * (lam * coef + grad + noise)
+        for j in range(1):
+            for i in range(len(y)): #DO LEARNING RATE
+                nu= 1.0 / (C * (optimal_init + i + 1))
+                #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+                if s[i] == 0:
+                    coef = coef1
+                else:
+                    coef = coef2
+                grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
+                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+                #print(grad)
+                #clip gradient with l_2 norm
+                grad = grad / max(1, np.linalg.norm(grad))
+                #coef = coef * max(0, 1 - (nu * C))
+                coef = max(1, np.linalg.norm(coef))
+                #update weights
+                coef -= nu * (grad + noise)
 
-            #print(loss)
-        return np.append(coef,coef)
+                #print(loss)
+        return np.append(coef2,coef1)
 
     def loss(self, coef, C, eta, x, y, s):
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
@@ -392,6 +401,7 @@ class LRwPRFittingType1Mixin(LRwPR):
             z = -pred
         if (y == 1):
             z = pred
+        
         if z > 18.0:
             dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
         elif z < -18.0:
