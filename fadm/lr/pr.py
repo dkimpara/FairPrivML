@@ -74,9 +74,7 @@ def sigmoid(x, w):
     sigmoid : float
         sigmoid(w^T x)
     """
-
     s = np.clip(np.dot(w, x), -SIGMOID_RANGE, SIGMOID_RANGE)
-
     return 1.0 / (1.0 + np.exp(-s))
 
 
@@ -296,9 +294,11 @@ class LRwPRFittingType1Mixin(LRwPR):
 
 
         eps = 100
-        lam = 0.001
+        
+        lam = 0.1
         C = 10
-        eta = 0
+        
+        eta = 0.00001
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
         # get final loss
         '''
@@ -322,13 +322,16 @@ class LRwPRFittingType1Mixin(LRwPR):
         nu = 1.0 / lam
         for i in range(len(y)): #batch size = 1
             #nu = 1.0 / (lam * (nu + i)) #optimal learning rate
-            sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+
+            #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+            
             grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
             #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
             noise = 0
+            #print(grad)
             #clip gradient with l_2 norm
-            #grad = grad / max(1, np.linalg.norm(grad))
-
+            grad = grad / max(1, np.linalg.norm(grad))
+            coef = coef / max(1, np.linalg.norm(coef))
             #update weights
             coef -= nu * (lam * coef + grad + noise)
 
@@ -376,11 +379,10 @@ class LRwPRFittingType1Mixin(LRwPR):
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
         n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
-        
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
-
+        #print(grad_fair)
         dloss = (y - pred) * pred * (1 - pred) * x
-
+        dloss = 1
         return -dloss + eta * grad_fair + C * coef
 '''
     def loss2(self, coef, X, y, s):
