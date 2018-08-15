@@ -294,11 +294,11 @@ class LRwPRFittingType1Mixin(LRwPR):
 
 
         eps = 100
-        
-        lam = 0.0001
-        C = 0.0001
-        
-        eta = 0
+
+        lam = 0.1
+        C = 120
+
+        eta = 0.00001
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
         # get final loss
         '''
@@ -314,31 +314,31 @@ class LRwPRFittingType1Mixin(LRwPR):
     # Moved SGDPriv function here temporarily
     '''Private SGD from song et al'''
 
-    
+
     def SGDPriv(self, x0, X, y, s, eps, lam, C, eta):
         sumloss = 0
         coef = x0[:int(len(x0)/2)]
         coef_size = len(coef)
         #nu = 1.0 / lam
-        for i in range(len(y)): #DO LEARNING RATE 
+        for i in range(len(y)): #DO LEARNING RATE
             nu = 1.0 / (lam * (i + 1)) #optimal learning rate
             #nu = 1.0 / sqrt(i+1)
             #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
-            
+
             grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
             #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
             noise = 0
             #print(grad)
             #clip gradient with l_2 norm
             grad = grad / max(1, np.linalg.norm(grad))
-            #coef = coef / max(1, np.linalg.norm(coef))
+            coef = coef / max(1, np.linalg.norm(coef))
             #update weights
-            coef = coef - nu * (lam * coef + grad + noise)
+            coef -= nu * (lam * coef + grad + noise)
 
             #print(loss)
         return np.append(coef,coef)
 
-    def loss(self, coef, C, eta, x, y, s): 
+    def loss(self, coef, C, eta, x, y, s):
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
         '''
         parameters
@@ -351,7 +351,7 @@ class LRwPRFittingType1Mixin(LRwPR):
             sensitive attribute
 
         returns
-        float: loss of instance '''
+        float: loss of instance'''
 
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
 
@@ -375,32 +375,24 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         returns
         float:
-        
+        '''
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
         n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
-            
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
         #print(grad_fair)
         #dloss = (y - pred) * pred * (1 - pred) * x
         dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
-        '''
-        
-        z = x * coef
-        if z > 18.0:
-            dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
-        elif z < -18.0:
-            dloss -y + (1-y)
-        else:
-            dloss = -y / (np.exp(-z)+1.0) + (1-y) / (np.exp(-z)+1.0)
-            
-        return dloss * x + eta * grad_fair + C * coef
-
-
+        return -dloss + eta * grad_fair + C * coef
+'''
     def loss2(self, coef, X, y, s):
-        total = 0
-        return total
 
+        total = 0
+        for i in range(len(y)):
+            pred = sigmoid(X[i,:], coef)
+            total +=
+
+        return total
 '''
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
@@ -410,7 +402,7 @@ class LRwPRObjetiveType4Mixin(LRwPR):
     Y and S.
     """
 
-    
+
 
 
     def loss2(self, coef_, X, y, s):
@@ -435,7 +427,7 @@ class LRwPRObjetiveType4Mixin(LRwPR):
         """
 
         coef = coef_.reshape(self.n_sfv_, self.n_features_)
-        
+
 #        print >> sys.stderr, "loss:", coef[0, :], coef[1, :]
 
         ### constants
