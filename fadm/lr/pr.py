@@ -377,13 +377,24 @@ class LRwPRFittingType1Mixin(LRwPR):
         float:
         '''
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
-        n_samples = self.c_s_[1] + self.c_s_[0]
+        """n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
         #print(grad_fair)
         #dloss = (y - pred) * pred * (1 - pred) * x
         dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
-        return -dloss + eta * grad_fair + C * coef
+
+        return -dloss + eta * grad_fair + C * coef"""
+        z = x * coef
+        if z > 18.0:
+            dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
+        elif z < -18.0:
+            dloss -y + (1-y)
+        else:
+            dloss = -y / (np.exp(-z)+1.0) + (1-y) / (np.exp(-z)+1.0)
+
+        return dloss * x + eta * grad_fair + C * coef
+
 '''
     def loss2(self, coef, X, y, s):
 
