@@ -298,8 +298,9 @@ class LRwPRFittingType1Mixin(LRwPR):
         #sgd learning params
         lam = 0.01 #learning rate (ish)
         C = 500 #regularization
+        batch_size = 1
 ####################################################################################
-        self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
+        self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
 ############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
         '''
@@ -315,7 +316,7 @@ class LRwPRFittingType1Mixin(LRwPR):
     '''Private SGD from song et al'''
 
 
-    def SGDPriv(self, x0, X, y, s, eps, lam, C, eta):
+    def SGDPriv(self, x0, X, y, s, eps, lam, C, eta, batch_size):
         sumloss = 0
         coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
     
@@ -328,19 +329,23 @@ class LRwPRFittingType1Mixin(LRwPR):
         # initialize t such that eta at first sample equals eta0
         optimal_init = 1.0 / (initial_nu0 * C)
 
-        for j in range(3):
-            for i in range(len(y)): #DO LEARNING RATE
-
-
+        for j in range(1):
+            shuffled = np.random.shuffle(np.append(np.append(X,y),s))
+            X, y, s = shuffled[:][:-2], shuffled[:][-2], shuffled[:][-1]
+            print(y)
+            print(s)
+            for k in range(0, len(y), batch_size): 
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
-                if s[i] == 0:
-                    coef = coef1
-                else:
-                    coef = coef2
-                grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
+                grad = 0
+                for i in range(batch_size):
+                    if s[k+i] == 0:
+                        coef = coef1
+                    else:
+                        coef = coef2
+                    grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
+                    
                 noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-
-################OPTIONS ###########################################################
+################OPTIONS #######################################################################
                 '''learning rate'''
                 nu= 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
                 #nu = 1/(lam * (i+1)) #DPSGD learning rate
@@ -352,7 +357,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                 '''coefficient projection to unit ball/ other option'''
                 #coef = coef * max(0, 1 - (nu * C))
                 coef = coef / max(1, np.linalg.norm(coef))
-###################################################################################                
+#############################################################################################                
                 #update weights
                 coef -= nu * (lam * coef + grad + noise)
 
