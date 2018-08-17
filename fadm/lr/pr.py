@@ -281,6 +281,17 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.n_features_ = X.shape[1]
         self.n_samples_ = X.shape[0]
 
+        # set SGD learning params
+        # privacy
+        eps = 1
+        # fairness
+        eta = 0
+        # learning rate
+        lam = 0.01
+        # regularizatoin
+        C = 500
+        batch_size = 1
+
         # optimization
         self.init_coef(1, X, y, s)
         '''self.coef_ = fmin_cg(self.loss,
@@ -288,19 +299,6 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-
-######### SET SGD LEARNING PARAMS ##################################################        #privacy
-        #privacy
-        eps = 1
-        #fairness
-        eta = 0
-
-        #sgd learning params
-        lam = 0.01 #learning rate (ish)
-        C = 500 #regularization
-        batch_size = 1
-####################################################################################
-
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
 ############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
