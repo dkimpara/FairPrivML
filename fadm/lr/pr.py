@@ -312,36 +312,38 @@ class LRwPRFittingType1Mixin(LRwPR):
         print(self.coef_)'''
         self.f_loss_ = self.loss2(self.coef_, X, y, s)
 
-
-    # Moved SGDPriv function here temporarily
-    '''Private SGD from song et al'''
-
-
+    #
     def SGDPriv(self, x0, X, y, s, eps, lam, C, eta, batch_size):
-        sumloss = 0
-        coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
 
+        # shuffle data
+        y = np.expand_dims(y, 1)
+        s = np.expand_dims(s, 1)
+        shuffled = np.concatenate((X, y), 1)
+        shuffled = np.concatenate((shuffled,s), 1)
+        np.random.shuffle(shuffled)
+        splits = np.hsplit(shuffled, [-2, -1])
+        X = splits[0]
+        y = splits[1]
+        s = splits[2]
+        y = np.squeeze(y, 1)
+        s = np.squeeze(s, 1)
+
+        sumloss = 0
+
+        # split coefficients for s=0 and s=1
+        coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
         coef_size = len(coef1)
 
         #nu = 1.0 / lam
         typw = np.sqrt(1.0 / np.sqrt(C))
+
         # computing eta0, the initial learning rate
         initial_nu0 = typw / max(1.0, -1.0/ (np.exp(-typw)+1.0))
+
         # initialize t such that eta at first sample equals eta0
         optimal_init = 1.0 / (initial_nu0 * C)
 
         for j in range(1):
-
-            # TODO reshape y and s so that they are of dimension (10854, ONE)
-            # need to add that second dimension of one, then following concatenation
-            # and shuffle will work
-
-            shuffled = np.concatenate((X, y), 1)
-            shuffled = np.concatenate((shuffled,s), 1)
-            np.random.shuffle(shuffled)
-
-            # TODO check decomposition of shuffle
-            X, y, s = shuffled[:][:-2], shuffled[:][-2], shuffled[:][-1]
 
             for k in range(0, len(y), batch_size):
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
@@ -354,19 +356,21 @@ class LRwPRFittingType1Mixin(LRwPR):
                     grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
 
                 noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-################OPTIONS #######################################################################
-                '''learning rate'''
-                nu= 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
-                #nu = 1/(lam * (i+1)) #DPSGD learning rate
 
-                '''noise/DP:'''
-                #noise = 0
+
+                ### options
+                # learning rate
+                nu= 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
+                # nu = 1/(lam * (i+1)) #DPSGD learning rate
+
+                # noise for DP
+                # noise = 0
                 grad = grad / max(1, np.linalg.norm(grad))
 
-                '''coefficient projection to unit ball/ other option'''
+                # coefficient projection to unit ball/other option
                 #coef = coef * max(0, 1 - (nu * C))
                 coef = coef / max(1, np.linalg.norm(coef))
-#############################################################################################
+
                 #update weights
                 coef -= nu * (lam * coef + grad + noise)
 
@@ -441,6 +445,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return total
 '''
+
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
 
