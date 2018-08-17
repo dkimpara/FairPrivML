@@ -288,7 +288,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        
+
 ######### SET SGD LEARNING PARAMS ##################################################        #privacy
         #privacy
         eps = 1
@@ -300,6 +300,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         C = 500 #regularization
         batch_size = 1
 ####################################################################################
+
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
 ############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
@@ -319,9 +320,9 @@ class LRwPRFittingType1Mixin(LRwPR):
     def SGDPriv(self, x0, X, y, s, eps, lam, C, eta, batch_size):
         sumloss = 0
         coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
-    
+
         coef_size = len(coef1)
-        
+
         #nu = 1.0 / lam
         typw = np.sqrt(1.0 / np.sqrt(C))
         # computing eta0, the initial learning rate
@@ -330,11 +331,19 @@ class LRwPRFittingType1Mixin(LRwPR):
         optimal_init = 1.0 / (initial_nu0 * C)
 
         for j in range(1):
-            shuffled = np.random.shuffle(np.append(np.append(X,y),s))
+
+            # TODO reshape y and s so that they are of dimension (10854, ONE)
+            # need to add that second dimension of one, then following concatenation
+            # and shuffle will work
+
+            shuffled = np.concatenate((X, y), 1)
+            shuffled = np.concatenate((shuffled,s), 1)
+            np.random.shuffle(shuffled)
+
+            # TODO check decomposition of shuffle
             X, y, s = shuffled[:][:-2], shuffled[:][-2], shuffled[:][-1]
-            print(y)
-            print(s)
-            for k in range(0, len(y), batch_size): 
+
+            for k in range(0, len(y), batch_size):
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
                 grad = 0
                 for i in range(batch_size):
@@ -343,7 +352,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                     else:
                         coef = coef2
                     grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
-                    
+
                 noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
 ################OPTIONS #######################################################################
                 '''learning rate'''
@@ -357,7 +366,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                 '''coefficient projection to unit ball/ other option'''
                 #coef = coef * max(0, 1 - (nu * C))
                 coef = coef / max(1, np.linalg.norm(coef))
-#############################################################################################                
+#############################################################################################
                 #update weights
                 coef -= nu * (lam * coef + grad + noise)
 
@@ -389,7 +398,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, C, eta, x, y, s): 
+    def grad_loss(self, coef, C, eta, x, y, s):
 
         '''
         parameters
@@ -406,13 +415,13 @@ class LRwPRFittingType1Mixin(LRwPR):
         pred = sigmoid(x, coef)
         ##todo: edit grad_fair
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
-        
+
         z = 0
         if (y == 0):
             z = -pred
         if (y == 1):
             z = pred
-        
+
         if z > 18.0:
             dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
         elif z < -18.0:
