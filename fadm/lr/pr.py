@@ -302,13 +302,12 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
 ############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
-        '''
-        model = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=1.75, fit_intercept=True)
-        model.fit(X,y)
-        print(model.score(X, y))
-        self.coef_ = np.append(model.coef_, model.coef_)
-        print(self.coef_)'''
-        self.f_loss_ = self.loss2(self.coef_, X, y, s)
+        # model = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=1.75, fit_intercept=True)
+        # model.fit(X,y)
+        # print(model.score(X, y))
+        # self.coef_ = np.append(model.coef_, model.coef_)
+        # print(self.coef_)
+        #self.f_loss_ = self.loss2(self.coef_, X, y, s)
 #########
 
 
@@ -403,7 +402,6 @@ class LRwPRFittingType1Mixin(LRwPR):
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
     def grad_loss(self, coef, C, eta, x, y, s):
-
         '''
         parameters
         coef:
@@ -435,16 +433,16 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return dloss * x + eta * grad_fair + C * coef
 
-'''
-    def loss2(self, coef, X, y, s):
 
-        total = 0
-        for i in range(len(y)):
-            pred = sigmoid(X[i,:], coef)
-            total +=
+    # def loss2(self, coef, X, y, s):
+    #
+    #     total = 0
+    #     for i in range(len(y)):
+    #         pred = sigmoid(X[i,:], coef)
+    #         total +=
+    #
+    #     return total
 
-        return total
-'''
 
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
