@@ -288,19 +288,20 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        #print(self.coef_)
-        # TODO remove fixed eps, lambda
-        #DIRECTIONS self.SGDpriv(coef, X, y, s, eps, lam, C, eta)
-
-
+        
+######### SET SGD LEARNING PARAMS ##################################################        #privacy
+        #privacy
         eps = 1
+        #fairness
+        eta = 0
 
-        lam = 0.001
-        C = 22
-
-        eta = 0.00000
+        #sgd learning params
+        lam = 0.01 #learning rate (ish)
+        C = 500 #regularization
+####################################################################################
         self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta)
-        # get final loss
+
+############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
         '''
         model = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=1.75, fit_intercept=True)
         model.fit(X,y)
@@ -327,26 +328,34 @@ class LRwPRFittingType1Mixin(LRwPR):
         # initialize t such that eta at first sample equals eta0
         optimal_init = 1.0 / (initial_nu0 * C)
 
-        for j in range(1):
+        for j in range(3):
             for i in range(len(y)): #DO LEARNING RATE
-                nu= 1.0 / (C * (optimal_init + i + 1))
+
+
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
                 if s[i] == 0:
                     coef = coef1
                 else:
                     coef = coef2
                 grad = self.grad_loss(coef, C, eta, X[i,:], y[i], s[i])
-                #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-                noise = 0
-                #print(grad)
-                #clip gradient with l_2 norm
+                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+
+################OPTIONS ###########################################################
+                '''learning rate'''
+                nu= 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
+                #nu = 1/(lam * (i+1)) #DPSGD learning rate
+
+                '''noise/DP:'''
+                #noise = 0
                 grad = grad / max(1, np.linalg.norm(grad))
+
+                '''coefficient projection to unit ball/ other option'''
                 #coef = coef * max(0, 1 - (nu * C))
                 coef = coef / max(1, np.linalg.norm(coef))
+###################################################################################                
                 #update weights
                 coef -= nu * (lam * coef + grad + noise)
 
-                #print(loss)
         return np.append(coef2,coef1)
 
     def loss(self, coef, C, eta, x, y, s):
@@ -375,7 +384,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, C, eta, x, y, s): #CHECK
+    def grad_loss(self, coef, C, eta, x, y, s): 
 
         '''
         parameters
@@ -390,13 +399,9 @@ class LRwPRFittingType1Mixin(LRwPR):
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
         n_samples = self.c_s_[1] + self.c_s_[0]
         pred = sigmoid(x, coef)
-
+        ##todo: edit grad_fair
         grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
-        """#print(grad_fair)
-        #dloss = (y - pred) * pred * (1 - pred) * x
-        dloss = y * x * pred * (1-pred) + (1.0 - y) * (-pred) * (1-pred)
-
-        return -dloss + eta * grad_fair + C * coef"""
+        
         z = 0
         if (y == 0):
             z = -pred
