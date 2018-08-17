@@ -299,7 +299,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        self.coef_ = self.SGDPriv(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
+        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
 ############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
         '''
@@ -309,9 +309,11 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.coef_ = np.append(model.coef_, model.coef_)
         print(self.coef_)'''
         self.f_loss_ = self.loss2(self.coef_, X, y, s)
+#########
 
-    #
-    def SGDPriv(self, x0, X, y, s, eps, lam, C, eta, batch_size):
+
+    def private_sgd(self, x0, X, y, s, eps, lam, C, eta, batch_size):
+        '''Private SGD from Song et al. '''
 
         # shuffle data
         y = np.expand_dims(y, 1)
