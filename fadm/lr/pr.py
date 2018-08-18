@@ -289,7 +289,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         # learning rate
         lam = 0.01
         # regularizatoin
-        C = 500
+        C = 10
         batch_size = 1
 
         # optimization
@@ -359,8 +359,8 @@ class LRwPRFittingType1Mixin(LRwPR):
 
                 ### options
                 # learning rate
-                nu= 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
-                # nu = 1/(lam * (i+1)) #DPSGD learning rate
+                nu = 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
+                #nu = 1/(lam * (i+1)) #DPSGD learning rate
 
                 # noise for DP
                 # noise = 0
@@ -371,7 +371,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                 coef = coef / max(1, np.linalg.norm(coef))
 
                 #update weights
-                coef -= nu * (lam * coef + grad + noise)
+                coef -= nu * (C * coef + grad + noise)
 
         return np.append(coef2,coef1)
 
