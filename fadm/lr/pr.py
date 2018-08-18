@@ -284,9 +284,9 @@ class LRwPRFittingType1Mixin(LRwPR):
         # privacy
         eps = 1
         # fairness
-        eta = 0
+        eta = 1
         # regularizatoin
-        C = 10
+        C = 0.003
         batch_size = 10
 
 
