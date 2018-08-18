@@ -286,6 +286,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         # fairness
         eta = 1
         # regularizatoin
+        #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
         C = 0.003
         batch_size = 10
 
