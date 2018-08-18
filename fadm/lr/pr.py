@@ -287,7 +287,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         eta = 0
         # regularizatoin
         C = 10
-        batch_size = 2
+        batch_size = 10
 
 
         # optimization
