@@ -301,14 +301,20 @@ class LRwPRFittingType1Mixin(LRwPR):
                              **kwargs)'''
         self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
 
-############ SCIKIT LOGISTIC REGRESSION BASELINE MODEL #############################
-        # model = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=1.75, fit_intercept=True)
-        # model.fit(X,y)
-        # print(model.score(X, y))
-        # self.coef_ = np.append(model.coef_, model.coef_)
-        # print(self.coef_)
-        #self.f_loss_ = self.loss2(self.coef_, X, y, s)
-#########
+############ SCIKIT SGD LOGISTIC REGRESSION BASELINE MODEL #############################
+        '''alp = 2.5
+        coef1, coef2 = self.coef_[:int(len(self.coef_)/2)], self.coef_[int(len(self.coef_)/2):]
+        model1 = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=alp, fit_intercept=True)
+        model1.fit(X[s==0],y[s==0])
+
+        model2 = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=alp, fit_intercept=True)
+        model2.fit(X[s==1],y[s==1])
+        
+        self.coef_ = np.append(model1.coef_, model2.coef_)
+        # print(self.coef_)'''
+        ##################
+
+        self.f_loss_ = self.loss2(self.coef_, X, y, s)
 
 
     def private_sgd(self, x0, X, y, s, eps, lam, C, eta, batch_size):
