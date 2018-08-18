@@ -280,7 +280,6 @@ class LRwPRFittingType1Mixin(LRwPR):
                               for si in xrange(self.n_sfv_)])
         self.n_features_ = X.shape[1]
         self.n_samples_ = X.shape[0]
-
         # set SGD learning params
         # privacy
         eps = 1
@@ -288,7 +287,8 @@ class LRwPRFittingType1Mixin(LRwPR):
         eta = 0
         # regularizatoin
         C = 10
-        batch_size = 1
+        batch_size = 2
+
 
         # optimization
         self.init_coef(1, X, y, s) #0 = init coef all zeroes. 1 = random coef init
@@ -334,7 +334,8 @@ class LRwPRFittingType1Mixin(LRwPR):
         sumloss = 0
 
         # split coefficients for s=0 and s=1
-        coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
+        #coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
+        coef = x0
         coef_size = len(x0)
 
         #nu = 1.0 / lam
@@ -360,7 +361,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                     grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
 
                 '''
-                grad = self.grad_loss(coef1, coef2, C, eta, X[k:k+batch_size,:],
+                grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
                 nu = 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
@@ -369,16 +370,20 @@ class LRwPRFittingType1Mixin(LRwPR):
                 # noise for DP
                 #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
                 noise = 0
-                grad = grad / max(1, np.linalg.norm(grad))
 
+                grad0 = grad[:self.n_features_] / max(1, np.linalg.norm(grad[:self.n_features_]))
+                grad1 = grad[self.n_features_:] / max(1, np.linalg.norm(grad[self.n_features_:]))
+                grad = np.append(grad0, grad1)
                 # coefficient projection to unit ball/other option
                 #coef = coef * max(0, 1 - (nu * C))
-                coef = coef / max(1, np.linalg.norm(coef))
-
+                '''coef0 = coef[:self.n_features_] / max(1, np.linalg.norm(coef[:self.n_features_]))
+                coef1 = coef[self.n_features_:] / max(1, np.linalg.norm(coef[self.n_features_:]))
+                coef = np.append(coef0, coef1)'''
+                
                 #update weights
                 coef -= nu * (C * coef + grad + noise)
 
-        return np.append(coef2,coef1)
+        return coef
 
     def loss(self, coef, C, eta, x, y, s):
         # assumes binary s with self.c_s_ = [size of set of s = 0, s = 1|]
@@ -406,11 +411,11 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef0, coef1, C, eta, X, y, s):
+    def grad_loss(self, coef, C, eta, X, y, s):
         '''
         parameters
         coef:
-        x:
+        x:BATCHES
         y:
         s:
 
@@ -425,31 +430,27 @@ class LRwPRFittingType1Mixin(LRwPR):
         #grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
         '''
         batch_size = len(y)
-        coef = 0
-        batch_s1 = np.sum(y)
+        batch_s1 = np.sum(s)
         batch_s0 = batch_size - batch_s1
+        c_s_batch = np.array([batch_s0, batch_s1])
 
-        grad0 = 0
-        grad1 = 0        
+        coef = coef.reshape(self.n_sfv_, self.n_features_)
+        l_ = np.empty(self.n_sfv_ * self.n_features_)
+        l = l_.reshape(self.n_sfv_, self.n_features_)
         
-        for i in range(batch_size):
-            if s[i] == 0:
-                grad0 += 1 / batch_s0 * grad_loss_helper(coef0, grad0, x[i], y[i], s[i], C, eta)
-            else:
-                grad1 += 1 / batch_s1 * grad_loss_helper(coef1, grad1, x[i], y[i], s[i], C, eta)
-#################
         #fairness gradient
+        s.astype(int)
         p = np.array([sigmoid(X[i, :], coef[s[i], :])
-                      for i in xrange(batch_size)])
+                      for i in range(batch_size)])
         dp = (p * (1.0 - p))[:, np.newaxis] * X
 
         # rho(s) = Pr[y=0|s] = \sum_{(xi,si)in D st si=s} sigma(xi,si) / #D[s]
         # d_rho(s) = \sum_{(xi,si)in D st si=s} d_sigma(xi,si) / #D[s]
         q = np.array([np.sum(p[s == si])
-                      for si in xrange(self.n_sfv_)]) / self.c_s_
+                      for si in xrange(self.n_sfv_)]) / c_s_batch
         dq = np.array([np.sum(dp[s == si, :], axis=0)
                        for si in xrange(self.n_sfv_)]) \
-                       / self.c_s_[:, np.newaxis]
+                       / c_s_batch[:, np.newaxis]
 
         # pi = Pr[y=0] = \sum_{(xi,si)in D} sigma(xi,si) / #D
         # d_pi = \sum_{(xi,si)in D} d_sigma(xi,si) / #D
@@ -483,9 +484,12 @@ class LRwPRFittingType1Mixin(LRwPR):
             - np.outer(f3, dr)
         f = np.array([np.sum(f4[s == si, :], axis=0)
                       for si in xrange(self.n_sfv_)])
-            
-        return -dloss + eta * fair_grad + C * coef
-##############
+        #scale gradients appropriately according to s1 s0 size
+        grad = -l + eta * fair_grad + C * coef
+
+        grad0 = 1 / batch_s0 * grad[:self.n_features_]
+        grad1 = 1 / batch_s1 * grad[self.n_features_:]
+        
         return np.append(grad0, grad1)
 
 class LRwPRObjetiveType4Mixin(LRwPR):
