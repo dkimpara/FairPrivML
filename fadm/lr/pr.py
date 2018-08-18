@@ -286,23 +286,21 @@ class LRwPRFittingType1Mixin(LRwPR):
         eps = 1
         # fairness
         eta = 0
-        # learning rate
-        lam = 0.01
         # regularizatoin
         C = 10
         batch_size = 1
 
         # optimization
-        self.init_coef(1, X, y, s)
+        self.init_coef(1, X, y, s) #0 = init coef all zeroes. 1 = random coef init
         '''self.coef_ = fmin_cg(self.loss,
                              self.coef_,
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, lam, C, eta, batch_size)
+        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
 
 ############ SCIKIT SGD LOGISTIC REGRESSION BASELINE MODEL #############################
-        '''alp = 2.5
+        '''alp = 2.5 #regularization coef
         coef1, coef2 = self.coef_[:int(len(self.coef_)/2)], self.coef_[int(len(self.coef_)/2):]
         model1 = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=alp, fit_intercept=True)
         model1.fit(X[s==0],y[s==0])
@@ -317,7 +315,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.f_loss_ = self.loss2(self.coef_, X, y, s)
 
 
-    def private_sgd(self, x0, X, y, s, eps, lam, C, eta, batch_size):
+    def private_sgd(self, x0, X, y, s, eps, C, eta, batch_size):
         '''Private SGD from Song et al. '''
 
         # shuffle data
@@ -337,7 +335,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # split coefficients for s=0 and s=1
         coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
-        coef_size = len(coef1)
+        coef_size = len(x0)
 
         #nu = 1.0 / lam
         typw = np.sqrt(1.0 / np.sqrt(C))
@@ -352,6 +350,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
             for k in range(0, len(y), batch_size):
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+                '''
                 grad = 0
                 for i in range(batch_size):
                     if s[k+i] == 0:
@@ -360,16 +359,16 @@ class LRwPRFittingType1Mixin(LRwPR):
                         coef = coef2
                     grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
 
-                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-
-
-                ### options
+                '''
+                grad = self.grad_loss(coef1, coef2, C, eta, X[k:k+batch_size,:],
+                                      y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
                 nu = 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
-                #nu = 1/(lam * (i+1)) #DPSGD learning rate
 
+                ### options
                 # noise for DP
-                # noise = 0
+                #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+                noise = 0
                 grad = grad / max(1, np.linalg.norm(grad))
 
                 # coefficient projection to unit ball/other option
@@ -407,7 +406,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, C, eta, x, y, s):
+    def grad_loss(self, coef0, coef1, C, eta, X, y, s):
         '''
         parameters
         coef:
@@ -418,37 +417,76 @@ class LRwPRFittingType1Mixin(LRwPR):
         returns
         float:
         '''
+        '''old fairness
         #coef = coef_.reshape(self.n_sfv_, self.n_features_)
-        n_samples = self.c_s_[1] + self.c_s_[0]
-        pred = sigmoid(x, coef)
+        #n_samples = self.c_s_[1] + self.c_s_[0]
+        #pred = sigmoid(x, coef)
         ##todo: edit grad_fair
-        grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
+        #grad_fair = x * n_samples * (s / self.c_s_[1] - (1 - s) / self.c_s_[0]) * pred * (1 - pred)
+        '''
+        batch_size = len(y)
+        coef = 0
+        batch_s1 = np.sum(y)
+        batch_s0 = batch_size - batch_s1
 
-        z = 0
-        if (y == 0):
-            z = -pred
-        if (y == 1):
-            z = pred
+        grad0 = 0
+        grad1 = 0        
+        
+        for i in range(batch_size):
+            if s[i] == 0:
+                grad0 += 1 / batch_s0 * grad_loss_helper(coef0, grad0, x[i], y[i], s[i], C, eta)
+            else:
+                grad1 += 1 / batch_s1 * grad_loss_helper(coef1, grad1, x[i], y[i], s[i], C, eta)
+#################
+        #fairness gradient
+        p = np.array([sigmoid(X[i, :], coef[s[i], :])
+                      for i in xrange(batch_size)])
+        dp = (p * (1.0 - p))[:, np.newaxis] * X
 
-        if z > 18.0:
-            dloss = -y * np.exp(-z) + (1-y) * np.exp(-z)
-        elif z < -18.0:
-            dloss -y + (1-y)
-        else:
-            dloss = -y / (np.exp(-z)+1.0) + (1-y) / (np.exp(-z)+1.0)
+        # rho(s) = Pr[y=0|s] = \sum_{(xi,si)in D st si=s} sigma(xi,si) / #D[s]
+        # d_rho(s) = \sum_{(xi,si)in D st si=s} d_sigma(xi,si) / #D[s]
+        q = np.array([np.sum(p[s == si])
+                      for si in xrange(self.n_sfv_)]) / self.c_s_
+        dq = np.array([np.sum(dp[s == si, :], axis=0)
+                       for si in xrange(self.n_sfv_)]) \
+                       / self.c_s_[:, np.newaxis]
 
-        return dloss * x + eta * grad_fair + C * coef
+        # pi = Pr[y=0] = \sum_{(xi,si)in D} sigma(xi,si) / #D
+        # d_pi = \sum_{(xi,si)in D} d_sigma(xi,si) / #D
+        r = np.sum(p) / batch_size
+        dr = np.sum(dp, axis=0) / batch_size
 
+        # likelihood
+        # l(si) = \sum_{x,y in D st s=si} (y - sigma(x, si)) x
+        for si in xrange(self.n_sfv_):
+            l[si, :] = np.sum((y - p)[s == si][:, np.newaxis] * X[s == si, :],
+                              axis=0)
 
-    # def loss2(self, coef, X, y, s):
-    #
-    #     total = 0
-    #     for i in range(len(y)):
-    #         pred = sigmoid(X[i,:], coef)
-    #         total +=
-    #
-    #     return total
+        # fairness-aware regularizer
+        # differentialy by w(s)
+        # \sum_{x,s in {D st s=si} \
+        #     [(log(rho(si)) - log(pi)) - (log(1 - rho(si)) - log(1 - pi))] \
+        #     * d_sigma
+        # + \sum_{x,s in {D st s=si} \
+        #     [ {sigma(xi, si) - rho(si)} / {rho(si) (1 - rho(si))} ] \
+        #     * d_rho
+        # - \sum_{x,s in {D st s=si} \
+        #     [ {sigma(xi, si) - pi} / {pi (1 - pi)} ] \
+        #     * d_pi
 
+        f1 = (np.log(q[s]) - np.log(r)) \
+             - (np.log(1.0 - q[s]) - np.log(1.0 - r))
+        f2 = (p - q[s]) / (q[s] * (1.0 - q[s]))
+        f3 = (p - r) / (r * (1.0 - r))
+        f4 = f1[:, np.newaxis] * dp \
+            + f2[:, np.newaxis] * dq[s, :] \
+            - np.outer(f3, dr)
+        f = np.array([np.sum(f4[s == si, :], axis=0)
+                      for si in xrange(self.n_sfv_)])
+            
+        return -dloss + eta * fair_grad + C * coef
+##############
+        return np.append(grad0, grad1)
 
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
