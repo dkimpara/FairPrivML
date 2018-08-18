@@ -364,7 +364,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                 grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
-                nu = 1.0 / (C * (optimal_init + i + 1)) #Scikit learning rate
+                nu = 1.0 / (C * (optimal_init + k + 1)) #Scikit learning rate
 
                 ### options
                 # noise for DP
@@ -437,9 +437,8 @@ class LRwPRFittingType1Mixin(LRwPR):
         coef = coef.reshape(self.n_sfv_, self.n_features_)
         l_ = np.empty(self.n_sfv_ * self.n_features_)
         l = l_.reshape(self.n_sfv_, self.n_features_)
-        
         #fairness gradient
-        s.astype(int)
+        s = s.astype(int)
         p = np.array([sigmoid(X[i, :], coef[s[i], :])
                       for i in range(batch_size)])
         dp = (p * (1.0 - p))[:, np.newaxis] * X
@@ -485,7 +484,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         f = np.array([np.sum(f4[s == si, :], axis=0)
                       for si in xrange(self.n_sfv_)])
         #scale gradients appropriately according to s1 s0 size
-        grad = -l + eta * fair_grad + C * coef
+        grad = -l + eta * f + C * coef
 
         grad0 = 1 / batch_s0 * grad[:self.n_features_]
         grad1 = 1 / batch_s1 * grad[self.n_features_:]
