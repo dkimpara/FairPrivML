@@ -282,12 +282,12 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.n_samples_ = X.shape[0]
         # set SGD learning params
         # privacy
-        eps = 100000
+        eps = 1
         # fairness
-        eta = 2
+        eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        C = 0.001
+        C = 0.0001
         batch_size = 10
 
 
@@ -369,21 +369,22 @@ class LRwPRFittingType1Mixin(LRwPR):
 
                 ### options
                 # noise for DP
-                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-                #noise = 0
+                noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
+                noise1 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
+
+                #noise0, noise1 = 0,0
 
                 #gradient clipping:
                 grad0 = grad[:self.n_features_] / max(1, np.linalg.norm(grad[:self.n_features_]))
                 grad1 = grad[self.n_features_:] / max(1, np.linalg.norm(grad[self.n_features_:]))
                 grad = np.append(grad0, grad1)
-                # coefficient projection to unit ball/other option
-                #coef = coef * max(0, 1 - (nu * C))
-                '''coef0 = coef[:self.n_features_] / max(1, np.linalg.norm(coef[:self.n_features_]))
-                coef1 = coef[self.n_features_:] / max(1, np.linalg.norm(coef[self.n_features_:]))
-                coef = np.append(coef0, coef1)'''
+                # coefficient projection to ball radius 1/C - cite DPSGD
+                coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
+                coef1 = coef[self.n_features_:] / np.linalg.norm(coef[self.n_features_:])
+                coef = 1 / C * np.append(coef0, coef1)
                 
                 #update weights
-                coef -= nu * (C * coef + grad + noise)
+                coef -= nu * (C * coef + grad + np.append(noise0, noise1))
 
         return coef
 

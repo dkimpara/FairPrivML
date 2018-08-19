@@ -119,6 +119,8 @@ def main(opt):
         X = fill_missing_with_mean(D[:, :-(1 + N_NS)])
     else:
         X = fill_missing_with_mean(D[:, :-1])
+    #normalize data rows
+    X = sk.preprocessing.normalize(X, norm = 'l2', axis = 1)
     S = np.atleast_2d(D[:, -(1 + N_NS):-1])
 
     ### main process
