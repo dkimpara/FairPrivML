@@ -289,12 +289,12 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # set SGD learning params
         # privacy
-        #eps = 1
+        eps = 1
         # fairness
-        #eta = 0
+        eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        #C = 0.001
+        C = 0.001
         batch_size = 10
         
         # optimization
@@ -304,7 +304,8 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        self.coef_ = self.private_sgd(self.coef_, X, y, s, self.epsilon, self.C, self.eta, batch_size)
+        #self.coef_ = self.private_sgd(self.coef_, X, y, s, self.epsilon, self.C, self.eta, batch_size)
+        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
 
 ############ SCIKIT SGD LOGISTIC REGRESSION BASELINE MODEL #############################
         '''alp = 2.5 #regularization coef
