@@ -34,6 +34,7 @@ from scipy.optimize import fmin_cg
 from sklearn.linear_model import LogisticRegression
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn import linear_model
+from sklearn import preprocessing
 #from loss import loss, grad_loss
 
 #==============================================================================
@@ -280,14 +281,16 @@ class LRwPRFittingType1Mixin(LRwPR):
                               for si in xrange(self.n_sfv_)])
         self.n_features_ = X.shape[1]
         self.n_samples_ = X.shape[0]
+        #normalize data rows
+        X = preprocessing.normalize(X, norm = 'l2', axis = 1)
         # set SGD learning params
         # privacy
-        eps = 1
+        eps = 100000
         # fairness
         eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        C = 0.0001
+        C = 0.001
         batch_size = 10
 
 
@@ -347,7 +350,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # initialize t such that eta at first sample equals eta0
         optimal_init = 1.0 / (initial_nu0 * C)
-
+        t = 0
         for j in range(1):
 
             for k in range(0, len(y), batch_size):
@@ -365,8 +368,9 @@ class LRwPRFittingType1Mixin(LRwPR):
                 grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
-                nu = 1.0 / (C * (optimal_init + k + 1)) #Scikit learning rate
-
+                
+                nu = 1.0 / (C * (optimal_init + t)) #Scikit learning rate
+                #nu = 10 / np.sqrt(t+1) #DPSGD learning rate
                 ### options
                 # noise for DP
                 noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
@@ -379,12 +383,14 @@ class LRwPRFittingType1Mixin(LRwPR):
                 grad1 = grad[self.n_features_:] / max(1, np.linalg.norm(grad[self.n_features_:]))
                 grad = np.append(grad0, grad1)
                 # coefficient projection to ball radius 1/C - cite DPSGD
-                coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
+                '''coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
                 coef1 = coef[self.n_features_:] / np.linalg.norm(coef[self.n_features_:])
-                coef = 1 / C * np.append(coef0, coef1)
+                coef = 1 / C * np.append(coef0, coef1)'''
                 
                 #update weights
                 coef -= nu * (C * coef + grad + np.append(noise0, noise1))
+                #update learning rate t
+                t += 1
 
         return coef
 

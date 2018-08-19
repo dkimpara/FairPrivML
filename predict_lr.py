@@ -68,6 +68,7 @@ import logging
 import datetime
 import pickle
 import numpy as np
+import sklearn
 
 # private modeules ------------------------------------------------------------
 from fadm.util import fill_missing_with_mean
@@ -119,9 +120,9 @@ def main(opt):
         X = fill_missing_with_mean(D[:, :-(1 + N_NS)])
     else:
         X = fill_missing_with_mean(D[:, :-1])
-    #normalize data rows
-    X = sklearn.preprocessing.normalize(X, norm = 'l2', axis = 1)
     S = np.atleast_2d(D[:, -(1 + N_NS):-1])
+    #normalize data rows. len(X[i]) = 14. checked already.
+    X = sklearn.preprocessing.normalize(X, norm = 'l2', axis = 1)
 
     ### main process
 
