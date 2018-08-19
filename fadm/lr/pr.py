@@ -282,16 +282,16 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.n_features_ = X.shape[1]
         self.n_samples_ = X.shape[0]
         #normalize data rows
-        X = preprocessing.normalize(X, norm = 'l2', axis = 1)
+        #X = preprocessing.normalize(X, norm = 'l2', axis = 1)
         # set SGD learning params
         # privacy
-        eps = 100000
+        eps = 1
         # fairness
         eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
         C = 0.001
-        batch_size = 10
+        batch_size = 100
 
 
         # optimization
@@ -311,7 +311,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         model2 = linear_model.SGDClassifier(loss='log', penalty='l2', alpha=alp, fit_intercept=True)
         model2.fit(X[s==1],y[s==1])
-        
+
         self.coef_ = np.append(model1.coef_, model2.coef_)
         # print(self.coef_)'''
         ##################
@@ -368,9 +368,9 @@ class LRwPRFittingType1Mixin(LRwPR):
                 grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
-                
-                nu = 1.0 / (C * (optimal_init + t)) #Scikit learning rate
-                #nu = 10 / np.sqrt(t+1) #DPSGD learning rate
+
+                nu = 1.0 / (C * (optimal_init + k)) # scikit learning rate
+                #nu = 10 / np.sqrt(t+1) # DPSGD learning rate
                 ### options
                 # noise for DP
                 noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
@@ -386,7 +386,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                 '''coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
                 coef1 = coef[self.n_features_:] / np.linalg.norm(coef[self.n_features_:])
                 coef = 1 / C * np.append(coef0, coef1)'''
-                
+
                 #update weights
                 coef -= nu * (C * coef + grad + np.append(noise0, noise1))
                 #update learning rate t
@@ -497,7 +497,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         grad0 = 1 / batch_s0 * grad[:self.n_features_]
         grad1 = 1 / batch_s1 * grad[self.n_features_:]
-        
+
         return np.append(grad0, grad1)
 
 class LRwPRObjetiveType4Mixin(LRwPR):
