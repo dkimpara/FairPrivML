@@ -282,12 +282,12 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.n_samples_ = X.shape[0]
         # set SGD learning params
         # privacy
-        eps = 1
+        eps = 100000
         # fairness
-        eta = 1
+        eta = 2
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        C = 0.003
+        C = 0.001
         batch_size = 10
 
 
@@ -369,9 +369,10 @@ class LRwPRFittingType1Mixin(LRwPR):
 
                 ### options
                 # noise for DP
-                #noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
-                noise = 0
+                noise = np.random.laplace(loc = 0.0, scale = 2 / eps, size = coef_size)
+                #noise = 0
 
+                #gradient clipping:
                 grad0 = grad[:self.n_features_] / max(1, np.linalg.norm(grad[:self.n_features_]))
                 grad1 = grad[self.n_features_:] / max(1, np.linalg.norm(grad[self.n_features_:]))
                 grad = np.append(grad0, grad1)
