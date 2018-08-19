@@ -70,7 +70,6 @@ import logging
 import datetime
 import pickle
 import numpy as np
-import sklearn as sk
 
 # private modeules ------------------------------------------------------------
 import site
@@ -148,8 +147,6 @@ def main(opt):
     # split data and process missing values
     y = np.array(D[:, -1])
     X = fill_missing_with_mean(D[:, :-1])
-    #normalize data rows
-    X = sk.preprocessing.normalize(X, norm = 'l2', axis = 1)
     del D
 
     ### main process
