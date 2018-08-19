@@ -23,6 +23,8 @@ Options
     regularization parameter (default 1.0)
 -e <eta>, --eta <eta>
     fairness penalty parameter (default 1.0)
+-eps <epsilon>, --epsilon <epsilon>
+    privacy parameter (default 1.0)
 -l <LTYPE>, --ltype <LTYPE>
     likehood fitting type (default 4)
 -t <NTRY>, --try <NTRY>
@@ -124,7 +126,7 @@ def train(X, y, ns, opt):
         trained classifier
     """
     if opt.ltype == 4:
-        clr = LRwPRType4(eta=opt.eta, C=opt.C)
+        clr = LRwPRType4(eta=opt.eta, epsilon=opt.epsilon, C=opt.C)
         clr.fit(X, y, ns, itype=opt.itype)
     else:
         sys.exit("Illegal likelihood fitting type")
@@ -270,6 +272,7 @@ if __name__ == '__main__':
     ap.add_argument('-C', '--reg', dest='C', type=float, default=1.0)
     ap.set_defaults(ns=False)
     ap.add_argument('-e', '--eta', type=float, default=1.0)
+    ap.add_argument('-eps', '--epsilon', type=float, default=1.0)
     ap.add_argument('-l', '--ltype', type=int, default=4)
     ap.add_argument('-n', '--itype', type=int, default=3)
     ap.set_defaults(ns=False)

@@ -8,8 +8,8 @@ be binary.
 
 Attributes
 ----------
-EPSILON : floast
-    small positive constant
+EPSILON : float
+    small positive constant -- note, not the privacy parameter
 N_S : int
     the number of sensitive features
 N_CLASSES : int
@@ -47,7 +47,7 @@ __all__ = ['LRwPRType4']
 # Constants
 #==============================================================================
 
-EPSILON = 1.0e-10
+EPSILON = 1.0e-10   # not the privacy parameter
 SIGMOID_RANGE = np.log((1.0 - EPSILON) / EPSILON)
 N_S = 1
 N_CLASSES = 2
@@ -92,6 +92,8 @@ class LRwPR(BaseEstimator, ClassifierMixin):
         regularization parameter
     eta : float
         penalty parameter
+    epsilon : float
+        privacy parameter
     fit_intercept : bool
         use a constant term
     penalty : str
@@ -120,7 +122,7 @@ class LRwPR(BaseEstimator, ClassifierMixin):
         the value of loss function after training
     """
 
-    def __init__(self, C=1, eta=0, fit_intercept=True, penalty='l2'):
+    def __init__(self, C=1, eta=0, epsilon=1, fit_intercept=True, penalty='l2'):
 
         if C < 0.0:
             raise TypeError
@@ -128,6 +130,7 @@ class LRwPR(BaseEstimator, ClassifierMixin):
         self.penalty = penalty
         self.C = C
         self.eta = eta
+        self.epsilon = epsilon
         self.minor_type = 0
         self.f_loss_ = np.inf
 
@@ -283,17 +286,17 @@ class LRwPRFittingType1Mixin(LRwPR):
         self.n_samples_ = X.shape[0]
         #normalize data rows
         #X = preprocessing.normalize(X, norm = 'l2', axis = 1)
+
         # set SGD learning params
         # privacy
-        eps = 1
+        #eps = 1
         # fairness
-        eta = 0
+        #eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        C = 0.001
-        batch_size = 100
-
-
+        #C = 0.001
+        batch_size = 10
+        
         # optimization
         self.init_coef(1, X, y, s) #0 = init coef all zeroes. 1 = random coef init
         '''self.coef_ = fmin_cg(self.loss,
@@ -301,7 +304,7 @@ class LRwPRFittingType1Mixin(LRwPR):
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
+        self.coef_ = self.private_sgd(self.coef_, X, y, s, self.epsilon, self.C, self.eta, batch_size)
 
 ############ SCIKIT SGD LOGISTIC REGRESSION BASELINE MODEL #############################
         '''alp = 2.5 #regularization coef
@@ -665,16 +668,18 @@ class LRwPRType4\
         regularization parameter
     eta : float
         penalty parameter
+    epsilon : float
+        privacy parameter
     fit_intercept : bool
         use a constant term
     penalty : str
         fixed to 'l2'
     """
 
-    def __init__(self, C=1.0, eta=1.0, fit_intercept=True, penalty='l2'):
+    def __init__(self, C=1.0, eta=1.0, epsilon=1.0, fit_intercept=True, penalty='l2'):
 
         super(LRwPRType4, self).\
-            __init__(C=C, eta=eta,
+            __init__(C=C, eta=eta, epsilon=epsilon,
                      fit_intercept=fit_intercept, penalty=penalty)
 
         self.coef_ = None
