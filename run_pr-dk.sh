@@ -4,8 +4,8 @@
 ###   variables between runs
 
 # enter command line param args to be used: e.g. -e(ta) default 1, -C, -eps(ilon) default 1
-params='-C 0.001'
-
+params='-C 0.1 -e 0.4 -eps 100000'
+#declare -a arrC= '100' '20' '10' '1' '0.1' '0.01' '0.001' '0.0001' '0.00001'
 # append parameter values in name for readability: e.g. model_eta100_
 model_name=model_
 result_name=result_

@@ -289,23 +289,31 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # set SGD learning params
         # privacy
-        eps = 1
+        #eps = 1
         # fairness
-        eta = 0
+        #eta = 0
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
-        C = 0.001
+        #C = 0.001
         batch_size = 10
         
-        # optimization
+        
+        # init coefs
         self.init_coef(1, X, y, s) #0 = init coef all zeroes. 1 = random coef init
         '''self.coef_ = fmin_cg(self.loss,
                              self.coef_,
                              fprime=self.grad_loss,
                              args=(X, y, s),
                              **kwargs)'''
-        #self.coef_ = self.private_sgd(self.coef_, X, y, s, self.epsilon, self.C, self.eta, batch_size)
-        self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
+        #warm start
+        split = int(len(y)/10)
+        self.coef_ = self.warm_start(self.coef_, X[:split][:], y[:split], s[:split],
+                                    self.C, self.eta, batch_size)
+        #optimize w dpsgd
+        #split = 0 no warm start
+        self.coef_ = self.private_sgd(self.coef_, X[split:][:], y[split:], s[split:],
+                                      self.epsilon, self.C, self.eta, batch_size)
+        #self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
 
 ############ SCIKIT SGD LOGISTIC REGRESSION BASELINE MODEL #############################
         '''alp = 2.5 #regularization coef
@@ -359,22 +367,13 @@ class LRwPRFittingType1Mixin(LRwPR):
 
             for k in range(0, len(y), batch_size):
                 #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
-                '''
-                grad = 0
-                for i in range(batch_size):
-                    if s[k+i] == 0:
-                        coef = coef1
-                    else:
-                        coef = coef2
-                    grad += 1/batch_size * self.grad_loss(coef, C, eta, X[k+i,:], y[k+i], s[k+i])
 
-                '''
                 grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
                 # learning rate
 
-                nu = 1.0 / (C * (optimal_init + k)) # scikit learning rate
-                #nu = 10 / np.sqrt(t+1) # DPSGD learning rate
+                #nu = 1.0 / (C * (optimal_init + k)) # scikit learning rate
+                nu = 10 / np.sqrt(t+1) # DPSGD learning rate
                 ### options
                 # noise for DP
                 noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
@@ -503,7 +502,62 @@ class LRwPRFittingType1Mixin(LRwPR):
         grad1 = 1 / batch_s1 * grad[self.n_features_:]
 
         return np.append(grad0, grad1)
+    def warm_start(self, x0, X, y, s, C, eta, batch_size):
+        '''Private SGD from Song et al. '''
 
+        # shuffle data
+        y = np.expand_dims(y, 1)
+        s = np.expand_dims(s, 1)
+        shuffled = np.concatenate((X, y), 1)
+        shuffled = np.concatenate((shuffled,s), 1)
+        np.random.shuffle(shuffled)
+        splits = np.hsplit(shuffled, [-2, -1])
+        X = splits[0]
+        y = splits[1]
+        s = splits[2]
+        y = np.squeeze(y, 1)
+        s = np.squeeze(s, 1)
+
+        sumloss = 0
+
+        # split coefficients for s=0 and s=1
+        #coef1, coef2 = x0[:int(len(x0)/2)], x0[int(len(x0)/2):]
+        coef = x0
+        coef_size = len(x0)
+
+        #nu = 1.0 / lam
+        typw = np.sqrt(1.0 / np.sqrt(C))
+
+        # computing eta0, the initial learning rate
+        initial_nu0 = typw / max(1.0, -1.0/ (np.exp(-typw)+1.0))
+
+        # initialize t such that eta at first sample equals eta0
+        optimal_init = 1.0 / (initial_nu0 * C)
+        t = 0
+        for j in range(1):
+
+            for k in range(0, len(y), batch_size):
+                #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
+                grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
+                                      y[k:k+batch_size], s[k:k+batch_size])
+                # learning rate
+
+                nu = 1.0 / (C * (optimal_init + t)) # scikit learning rate
+                #nu = 10 / np.sqrt(t+1) # DPSGD learning rate
+                ### options
+
+                noise0, noise1 = 0, 0
+                # coefficient projection to ball radius 1/C - cite DPSGD
+                '''coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
+                coef1 = coef[self.n_features_:] / np.linalg.norm(coef[self.n_features_:])
+                coef = 1 / C * np.append(coef0, coef1)'''
+
+                #update weights
+                coef -= nu * (C * coef + grad)
+                #update learning rate t
+                t += 1
+
+        return coef
 class LRwPRObjetiveType4Mixin(LRwPR):
     """ objective function of logistic regression with prejudice remover
 
