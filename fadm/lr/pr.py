@@ -295,7 +295,7 @@ class LRwPRFittingType1Mixin(LRwPR):
         # regularizatoin
         #MAKE SURE YOU PLAY WITH THESE. MORE BATCH MEANS LESS REG
         #C = 0.001
-        batch_size = 10
+        batch_size = 30
         
         
         # init coefs
@@ -306,11 +306,11 @@ class LRwPRFittingType1Mixin(LRwPR):
                              args=(X, y, s),
                              **kwargs)'''
         #warm start
-        split = int(len(y)/10)
-        self.coef_ = self.warm_start(self.coef_, X[:split][:], y[:split], s[:split],
-                                    self.C, self.eta, batch_size)
+        #split = int(len(y)/10)
+        #self.coef_ = self.warm_start(self.coef_, X[:split][:], y[:split], s[:split],
+                                    #self.C, self.eta, batch_size)
         #optimize w dpsgd
-        #split = 0 no warm start
+        split = 0 #no warm start
         self.coef_ = self.private_sgd(self.coef_, X[split:][:], y[split:], s[split:],
                                       self.epsilon, self.C, self.eta, batch_size)
         #self.coef_ = self.private_sgd(self.coef_, X, y, s, eps, C, eta, batch_size)
@@ -360,38 +360,25 @@ class LRwPRFittingType1Mixin(LRwPR):
         # computing eta0, the initial learning rate
         initial_nu0 = typw / max(1.0, -1.0/ (np.exp(-typw)+1.0))
 
-        # initialize t such that eta at first sample equals eta0
+        #initialize t such that eta at first sample equals eta0
         optimal_init = 1.0 / (initial_nu0 * C)
         t = 0
         for j in range(1):
-
             for k in range(0, len(y), batch_size):
-                #sumloss += self.loss(coef, C, eta, X[i,:], y[i], s[i])
-
-                grad = self.grad_loss(coef, C, eta, X[k:k+batch_size,:],
+                grad = self.grad_loss(coef, C, eta, eps, X[k:k+batch_size,:],
                                       y[k:k+batch_size], s[k:k+batch_size])
+
                 # learning rate
-
-                #nu = 1.0 / (C * (optimal_init + k)) # scikit learning rate
-                nu = 10 / np.sqrt(t+1) # DPSGD learning rate
-                ### options
-                # noise for DP
-                noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
-                noise1 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
-
-                #noise0, noise1 = 0,0
-
-                #gradient clipping:
-                grad0 = grad[:self.n_features_] / max(1, np.linalg.norm(grad[:self.n_features_]))
-                grad1 = grad[self.n_features_:] / max(1, np.linalg.norm(grad[self.n_features_:]))
-                grad = np.append(grad0, grad1)
+                nu = 1.0 / (C * (optimal_init + t)) # scikit learning rate
+                #nu = 1.5 / np.sqrt(t+1) # DPSGD learning rate
+                
                 # coefficient projection to ball radius 1/C - cite DPSGD
                 '''coef0 = coef[:self.n_features_] / np.linalg.norm(coef[:self.n_features_])
                 coef1 = coef[self.n_features_:] / np.linalg.norm(coef[self.n_features_:])
                 coef = 1 / C * np.append(coef0, coef1)'''
 
                 #update weights
-                coef -= nu * (C * coef + grad + np.append(noise0, noise1))
+                coef -= nu * (C * coef + grad) #noise in grad_loss
                 #update learning rate t
                 t += 1
 
@@ -423,7 +410,7 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         return -logLoss + eta * fairLoss + 0.5 * C * regLoss
 
-    def grad_loss(self, coef, C, eta, X, y, s):
+    def grad_loss(self, coef, C, eta, eps, X, y, s):
         '''
         parameters
         coef:
@@ -449,13 +436,14 @@ class LRwPRFittingType1Mixin(LRwPR):
         coef = coef.reshape(self.n_sfv_, self.n_features_)
         l_ = np.empty(self.n_sfv_ * self.n_features_)
         l = l_.reshape(self.n_sfv_, self.n_features_)
+
         #fairness gradient
         s = s.astype(int)
         p = np.array([sigmoid(X[i, :], coef[s[i], :])
                       for i in range(batch_size)])
-        dp = (p * (1.0 - p))[:, np.newaxis] * X
+        dp = (p * (1.0 - p))[:, np.newaxis] * X #for each entry by row i. DSIGMA
 
-        # rho(s) = Pr[y=0|s] = \sum_{(xi,si)in D st si=s} sigma(xi,si) / #D[s]
+        # rho(s) = Pr[y=0|s] = \sum_{(xi,si)in D st si=s} sigma(xi,si) / #D[s] CHECKED
         # d_rho(s) = \sum_{(xi,si)in D st si=s} d_sigma(xi,si) / #D[s]
         q = np.array([np.sum(p[s == si])
                       for si in xrange(self.n_sfv_)]) / c_s_batch
@@ -470,10 +458,10 @@ class LRwPRFittingType1Mixin(LRwPR):
 
         # likelihood
         # l(si) = \sum_{x,y in D st s=si} (y - sigma(x, si)) x
-        for si in xrange(self.n_sfv_):
-            l[si, :] = np.sum((y - p)[s == si][:, np.newaxis] * X[s == si, :],
-                              axis=0)
-
+        #for si in xrange(self.n_sfv_): '''clip'''
+            #l[si, :] = np.sum((y - p)[s == si][:, np.newaxis] * X[s == si, :],
+                              #axis=0)
+        ellvec = (y - p)[:, np.newaxis] * X
         # fairness-aware regularizer
         # differentialy by w(s)
         # \sum_{x,s in {D st s=si} \
@@ -493,15 +481,40 @@ class LRwPRFittingType1Mixin(LRwPR):
         f4 = f1[:, np.newaxis] * dp \
             + f2[:, np.newaxis] * dq[s, :] \
             - np.outer(f3, dr)
-        f = np.array([np.sum(f4[s == si, :], axis=0)
-                      for si in xrange(self.n_sfv_)])
-        #scale gradients appropriately according to s1 s0 size
-        grad = -l + eta * f + C * coef
 
-        grad0 = 1 / batch_s0 * grad[:self.n_features_]
-        grad1 = 1 / batch_s1 * grad[self.n_features_:]
+        #gradient clipping
+        grad0 = 0
+        grad1 = 0
+        
+        if batch_s0 == 0:
+            batch0scale = 0
+        else:
+            batch0scale = 1 / batch_s0
+        if batch_s1 == 0:
+            batch1scale = 0
+        else:
+            batch1scale = 1 / batch_s1
+        #print(ellvec, f4)
+        print(coef)
+        for i in range(batch_size):
+            unclipped_grad = -ellvec[i] + f4[i] + C * coef[s[i]]
+            clipped_ = unclipped_grad / max(1, np.linalg.norm(unclipped_grad))
 
+            if s[i] == 0:
+                grad0 += batch0scale * clipped_
+            else:
+                grad1 += batch1scale * clipped_
+
+        #add noise
+        noise0 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
+        noise1 = np.random.laplace(loc = 0.0, scale = 2 / eps, size = self.n_features_)
+
+        grad0 += batch0scale * noise0
+        grad1 += batch1scale * noise1
+        #print(grad0)
+        #print(grad1)
         return np.append(grad0, grad1)
+    
     def warm_start(self, x0, X, y, s, C, eta, batch_size):
         '''Private SGD from Song et al. '''
 
