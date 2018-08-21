@@ -1,3 +1,4 @@
 *.pyc
 model_*
 result_*
+diabetes_data/*
